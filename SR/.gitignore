@@ -1,0 +1,36 @@
+# Large data files and results
+images/
+upscaled_4X_images/
+AI_models/
+preprocessing/
+results_proper_comparison/
+evaluation_4X_results/
+
+# Training outputs
+*.pth
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
