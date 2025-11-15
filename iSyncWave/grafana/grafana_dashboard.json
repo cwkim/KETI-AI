@@ -1,0 +1,290 @@
+{
+  "dashboard": {
+    "title": "iSyncWave EEG Real-time Monitor",
+    "tags": ["eeg", "isyncwave", "redis"],
+    "timezone": "browser",
+    "refresh": "5s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Stream Metadata",
+        "type": "stat",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 24,
+          "h": 4
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "query": "HGETALL isyncwave:eeg:meta",
+            "type": "command"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": null
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Latest EEG Data - Fp1 (Frontal Left)",
+        "type": "gauge",
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 6,
+          "h": 6
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "query": "HGET isyncwave:eeg:latest Fp1",
+            "type": "command"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "volt",
+            "min": -0.01,
+            "max": 0.01
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Latest EEG Data - Fp2 (Frontal Right)",
+        "type": "gauge",
+        "gridPos": {
+          "x": 6,
+          "y": 4,
+          "w": 6,
+          "h": 6
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "query": "HGET isyncwave:eeg:latest Fp2",
+            "type": "command"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "volt",
+            "min": -0.01,
+            "max": 0.01
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Latest EEG Data - Cz (Central)",
+        "type": "gauge",
+        "gridPos": {
+          "x": 12,
+          "y": 4,
+          "w": 6,
+          "h": 6
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "query": "HGET isyncwave:eeg:latest Cz",
+            "type": "command"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "volt",
+            "min": -0.01,
+            "max": 0.01
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Latest EEG Data - O1 (Occipital Left)",
+        "type": "gauge",
+        "gridPos": {
+          "x": 18,
+          "y": 4,
+          "w": 6,
+          "h": 6
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "query": "HGET isyncwave:eeg:latest O1",
+            "type": "command"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "volt",
+            "min": -0.01,
+            "max": 0.01
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "EEG Time Series - All Channels (Last 100 samples)",
+        "type": "timeseries",
+        "gridPos": {
+          "x": 0,
+          "y": 10,
+          "w": 24,
+          "h": 10
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "query": "XREVRANGE isyncwave:eeg:stream + - COUNT 100",
+            "type": "command"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "lineWidth": 1,
+              "fillOpacity": 0,
+              "showPoints": "never"
+            },
+            "unit": "volt"
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Sampling Rate Monitor",
+        "type": "stat",
+        "gridPos": {
+          "x": 0,
+          "y": 20,
+          "w": 8,
+          "h": 4
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "query": "HGET isyncwave:eeg:meta sampling_rate",
+            "type": "command"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "hertz",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "yellow",
+                  "value": 200
+                },
+                {
+                  "color": "green",
+                  "value": 250
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Total Samples Collected",
+        "type": "stat",
+        "gridPos": {
+          "x": 8,
+          "y": 20,
+          "w": 8,
+          "h": 4
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "query": "HGET isyncwave:eeg:meta total_samples",
+            "type": "command"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "blue",
+                  "value": null
+                }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Recording Duration",
+        "type": "stat",
+        "gridPos": {
+          "x": 16,
+          "y": 20,
+          "w": 8,
+          "h": 4
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "query": "HGET isyncwave:eeg:meta duration_seconds",
+            "type": "command"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "purple",
+                  "value": null
+                }
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "schemaVersion": 38,
+    "version": 1
+  },
+  "overwrite": true
+}

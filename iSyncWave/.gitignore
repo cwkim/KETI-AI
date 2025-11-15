@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# EEG Data Files
+*.pkl
+*.edf
+*.fif
+*.set
+
+# Result Images
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Test Data (large files)
+test_edf/*.edf
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Redis dumps
+dump.rdb
+
+# Grafana data
+grafana/data/

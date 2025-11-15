@@ -1,0 +1,54 @@
+================================================================================
+Grafana 로그인 계정 설정
+================================================================================
+
+계정을 keti / keti1234! 로 설정하는 방법:
+
+【방법 1】 자동 스크립트 (가장 쉬움)
+──────────────────────────────
+
+터미널에서 실행:
+
+    cd /home/keti/cwkim/KETI-AI/iSyncWave
+    sudo ./reset_grafana_simple.sh
+
+완료 후 Grafana 접속:
+    URL: http://localhost:3000
+    Username: keti
+    Password: keti1234!
+
+
+【방법 2】 수동 명령어
+──────────────────────────────
+
+1. Grafana 컨테이너 확인:
+    sudo docker ps | grep grafana
+
+2. keti 계정 생성:
+    sudo docker exec -it <container_name> grafana-cli admin create --admin-user keti --admin-password 'keti1234!'
+
+   또는 admin 비밀번호 변경:
+    sudo docker exec -it <container_name> grafana-cli admin reset-admin-password 'keti1234!'
+
+
+【빠른 복사 명령어】
+──────────────────────────────
+
+다음 명령어를 복사해서 터미널에 붙여넣기:
+
+GRAFANA_CONTAINER=$(sudo docker ps --format "{{.Names}}" | grep -i grafana | head -1)
+sudo docker exec $GRAFANA_CONTAINER grafana-cli admin create --admin-user keti --admin-password 'keti1234!'
+
+성공 메시지가 보이면:
+    → http://localhost:3000
+    → keti / keti1234! 로 로그인
+
+
+【자세한 가이드】
+──────────────────────────────
+
+더 많은 옵션과 트러블슈팅:
+    → GRAFANA_PASSWORD_RESET.md 참고
+
+
+================================================================================

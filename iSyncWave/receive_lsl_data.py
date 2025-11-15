@@ -23,15 +23,15 @@ def receive_eeg_data(stream_name=None, duration=10, show_data=True):
     # Resolve streams
     if stream_name:
         print(f"Looking for stream: {stream_name}")
-        streams = pylsl.resolve_byprop('name', stream_name, wait_time=5)
+        streams = pylsl.resolve_byprop('name', stream_name, timeout=5)
     else:
         print("Looking for any EEG stream...")
-        streams = pylsl.resolve_stream('type', 'EEG', wait_time=5)
+        streams = pylsl.resolve_byprop('type', 'EEG', timeout=5)
 
         # If no EEG type found, try to get any stream
         if not streams:
             print("No EEG streams found, trying all streams...")
-            streams = pylsl.resolve_streams(wait_time=5)
+            streams = pylsl.resolve_streams(timeout=5)
 
     if not streams:
         print("\n❌ No LSL streams found!")

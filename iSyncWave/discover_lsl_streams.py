@@ -18,7 +18,7 @@ def discover_streams(timeout=5):
     print("-" * 60)
 
     # Resolve all streams on the network
-    streams = pylsl.resolve_streams(wait_time=timeout)
+    streams = pylsl.resolve_streams(timeout=timeout)
 
     if not streams:
         print("No LSL streams found on the network.")

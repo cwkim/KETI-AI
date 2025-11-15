@@ -30,7 +30,7 @@ def monitor_streams(check_interval=2):
     try:
         while True:
             # Check for streams
-            streams = pylsl.resolve_streams(wait_time=1)
+            streams = pylsl.resolve_streams(timeout=1)
 
             # If stream count changed, print update
             if len(streams) != last_stream_count:
