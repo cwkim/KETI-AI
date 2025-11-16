@@ -80,7 +80,7 @@ python3 redis_eeg_pipeline.py
 
 ### 3. Python API 사용
 
-스크립트 내에서 사용:
+#### 기본 사용법
 
 ```python
 from redis_eeg_pipeline import RedisEEGPipeline
@@ -97,8 +97,32 @@ if not pipeline.connect():
     print("Redis 연결 실패!")
     exit()
 
-# 2. 데이터 로드 (최근 100,000 샘플)
+# 2. 사용 가능한 데이터 시간 범위 확인
+time_range = pipeline.get_available_time_range()
+# 출력: 시작 시간, 종료 시간, 총 시간, 총 샘플 수
+
+# 3. 데이터 로드 (여러 방법)
+
+# 방법 1: 전체 데이터 로드
+if not pipeline.load_data():
+    print("데이터 로드 실패!")
+    exit()
+
+# 방법 2: 최근 N개 샘플만 로드
 if not pipeline.load_data(count=100000):
+    print("데이터 로드 실패!")
+    exit()
+
+# 방법 3: LSL 타임스탬프로 시간 범위 지정 (예: 100초~200초)
+if not pipeline.load_data(start_time=100.0, end_time=200.0):
+    print("데이터 로드 실패!")
+    exit()
+
+# 방법 4: datetime 객체로 시간 범위 지정
+from datetime import datetime, timedelta
+start_dt = datetime(2025, 11, 15, 14, 30, 0)  # 2025-11-15 14:30:00
+end_dt = start_dt + timedelta(minutes=5)      # 5분간 데이터
+if not pipeline.load_data(start_time=start_dt, end_time=end_dt):
     print("데이터 로드 실패!")
     exit()
 
@@ -379,7 +403,49 @@ pipeline.load_data(count=10000)  # 기본값 100000에서 감소
 
 **A:** 이 파이프라인은 타임스탬프 마커 없이 연속 데이터를 처리합니다. 별도 작업 불필요합니다.
 
-### Q5. 실시간 분석이 가능한가요?
+### Q5. 특정 이벤트 구간만 분석하고 싶습니다.
+
+**A:** `get_available_time_range()`로 전체 범위를 확인한 후, `load_data()`의 `start_time`/`end_time` 파라미터로 원하는 구간만 로드하세요.
+
+```python
+# 1. 전체 시간 범위 확인
+time_range = pipeline.get_available_time_range()
+print(f"전체 범위: {time_range['start_timestamp']:.2f} ~ {time_range['end_timestamp']:.2f}")
+
+# 2. 특정 이벤트 구간만 로드 (예: 100초~150초 구간)
+pipeline.load_data(start_time=100.0, end_time=150.0)
+```
+
+### Q6. 여러 이벤트 구간을 순차적으로 분석하려면?
+
+**A:** 각 구간마다 `load_data()` + `preprocess()` + ... 를 반복하면 됩니다.
+
+```python
+# 이벤트 구간 정의 (시작, 종료 시간)
+events = [
+    (100.0, 120.0),  # 이벤트 1
+    (150.0, 170.0),  # 이벤트 2
+    (200.0, 220.0),  # 이벤트 3
+]
+
+all_features = []
+
+for start, end in events:
+    # 구간별 데이터 로드
+    pipeline.load_data(start_time=start, end_time=end)
+    pipeline.preprocess(apply_ica=False)
+    pipeline.segment_data()
+    pipeline.extract_features()
+
+    # 특징 저장
+    all_features.append(pipeline.features['alpha_power'])
+
+# 모든 특징 결합
+import numpy as np
+combined_features = np.concatenate(all_features, axis=0)
+```
+
+### Q7. 실시간 분석이 가능한가요?
 
 **A:** 현재는 배치 처리만 지원합니다. 실시간 분석을 위해서는 Redis XREAD를 사용한 스트리밍 모드가 필요합니다.
 

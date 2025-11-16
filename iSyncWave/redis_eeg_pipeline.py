@@ -14,7 +14,7 @@ from scipy.signal import welch
 import matplotlib.pyplot as plt
 from mne.preprocessing import ICA
 import pickle
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class RedisEEGPipeline:
@@ -52,18 +52,164 @@ class RedisEEGPipeline:
             print(f"❌ Redis 연결 실패: {e}")
             return False
 
-    def load_data(self, count=100000):
+    def _load_by_time_range(self, start_time, end_time):
+        """
+        시간 범위로 데이터 로드 (내부 헬퍼 함수)
+
+        Parameters:
+        -----------
+        start_time : datetime or float or None
+            시작 시간
+        end_time : datetime or float or None
+            종료 시간
+
+        Returns:
+        --------
+        list : Redis stream 데이터
+        """
+        # 전체 데이터 범위 확인
+        time_range = self.get_available_time_range()
+        if time_range is None:
+            return []
+
+        # LSL 타임스탬프로 변환
+        if start_time is None:
+            start_lsl = time_range['start_timestamp']
+        elif isinstance(start_time, (int, float)):
+            start_lsl = float(start_time)
+        elif isinstance(start_time, datetime):
+            # datetime을 LSL 타임스탬프로 변환 (상대적 계산)
+            dt_diff = (start_time - time_range['start_time']).total_seconds()
+            start_lsl = time_range['start_timestamp'] + dt_diff
+        else:
+            print(f"⚠️  지원하지 않는 start_time 타입: {type(start_time)}")
+            start_lsl = time_range['start_timestamp']
+
+        if end_time is None:
+            end_lsl = time_range['end_timestamp']
+        elif isinstance(end_time, (int, float)):
+            end_lsl = float(end_time)
+        elif isinstance(end_time, datetime):
+            # datetime을 LSL 타임스탬프로 변환 (상대적 계산)
+            dt_diff = (end_time - time_range['start_time']).total_seconds()
+            end_lsl = time_range['start_timestamp'] + dt_diff
+        else:
+            print(f"⚠️  지원하지 않는 end_time 타입: {type(end_time)}")
+            end_lsl = time_range['end_timestamp']
+
+        print(f"\n시간 범위 필터:")
+        print(f"  요청 LSL 범위: {start_lsl:.3f} ~ {end_lsl:.3f} ({end_lsl - start_lsl:.2f}초)")
+
+        # 전체 데이터를 가져와서 LSL 타임스탬프로 필터링
+        # (Redis XRANGE는 Stream ID 기반이므로, LSL 타임스탬프로 필터링하려면 전체를 가져와야 함)
+        all_data = self.redis_client.xrange('isyncwave:eeg:stream', '-', '+')
+
+        filtered_data = []
+        for msg_id, data in all_data:
+            lsl_ts = float(data.get('lsl_timestamp', 0))
+            if start_lsl <= lsl_ts <= end_lsl:
+                filtered_data.append((msg_id, data))
+
+        print(f"  필터링된 샘플: {len(filtered_data)} / {len(all_data)}")
+
+        return filtered_data
+
+    def get_available_time_range(self):
+        """
+        Redis에 저장된 데이터의 시간 범위 확인
+
+        Returns:
+        --------
+        dict : 시간 범위 정보
+            - 'start_time': 시작 시간 (datetime)
+            - 'end_time': 종료 시간 (datetime)
+            - 'start_timestamp': 시작 LSL 타임스탬프
+            - 'end_timestamp': 종료 LSL 타임스탬프
+            - 'duration': 총 시간 (초)
+            - 'total_samples': 총 샘플 수
+        """
+        print("\n" + "="*90)
+        print("사용 가능한 데이터 시간 범위 확인")
+        print("="*90)
+
+        # 첫 번째와 마지막 데이터 조회
+        first_data = self.redis_client.xrange('isyncwave:eeg:stream', '-', '+', count=1)
+        last_data = self.redis_client.xrevrange('isyncwave:eeg:stream', '+', '-', count=1)
+
+        if not first_data or not last_data:
+            print("❌ 스트림 데이터가 없습니다!")
+            return None
+
+        # 타임스탬프 추출
+        first_id, first_values = first_data[0]
+        last_id, last_values = last_data[0]
+
+        start_lsl_ts = float(first_values.get('lsl_timestamp', 0))
+        end_lsl_ts = float(last_values.get('lsl_timestamp', 0))
+
+        # Stream ID에서 Redis 타임스탬프 추출 (밀리초)
+        first_redis_ts = int(first_id.split('-')[0])
+        last_redis_ts = int(last_id.split('-')[0])
+
+        # datetime 변환
+        start_dt = datetime.fromtimestamp(first_redis_ts / 1000)
+        end_dt = datetime.fromtimestamp(last_redis_ts / 1000)
+
+        # 총 샘플 수 확인
+        total_samples = self.redis_client.xlen('isyncwave:eeg:stream')
+
+        duration = end_lsl_ts - start_lsl_ts
+
+        print(f"\n데이터 범위:")
+        print(f"  시작 시간: {start_dt.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        print(f"  종료 시간: {end_dt.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]}")
+        print(f"  총 시간: {duration:.2f}초 ({duration/60:.2f}분)")
+        print(f"  총 샘플 수: {total_samples:,}")
+        print(f"  LSL 타임스탬프 범위: {start_lsl_ts:.3f} ~ {end_lsl_ts:.3f}")
+
+        return {
+            'start_time': start_dt,
+            'end_time': end_dt,
+            'start_timestamp': start_lsl_ts,
+            'end_timestamp': end_lsl_ts,
+            'start_redis_id': first_id,
+            'end_redis_id': last_id,
+            'duration': duration,
+            'total_samples': total_samples
+        }
+
+    def load_data(self, start_time=None, end_time=None, count=None):
         """
         Redis에서 EEG 데이터 로드
 
         Parameters:
         -----------
-        count : int
-            읽을 최대 샘플 수
+        start_time : datetime or float, optional
+            시작 시간 (datetime 객체 또는 LSL 타임스탬프)
+            None이면 처음부터 로드
+        end_time : datetime or float, optional
+            종료 시간 (datetime 객체 또는 LSL 타임스탬프)
+            None이면 끝까지 로드
+        count : int, optional
+            읽을 최대 샘플 수 (start_time/end_time보다 우선순위 낮음)
+            start_time/end_time이 None일 때만 사용
 
         Returns:
         --------
         bool : 성공 여부
+
+        Examples:
+        ---------
+        # 최근 10000개 샘플 로드
+        pipeline.load_data(count=10000)
+
+        # 특정 시간 범위 로드 (LSL 타임스탬프)
+        pipeline.load_data(start_time=100.0, end_time=200.0)
+
+        # 특정 시간 범위 로드 (datetime)
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        pipeline.load_data(start_time=now-timedelta(minutes=5), end_time=now)
         """
         print("\n" + "="*90)
         print("REDIS 데이터 로드")
@@ -80,17 +226,24 @@ class RedisEEGPipeline:
         print(f"  샘플링 레이트: {meta.get('sampling_rate', 'N/A')} Hz")
         print(f"  채널 이름: {meta.get('channels', 'N/A')}")
 
-        # 스트림 데이터 읽기
-        stream_data = self.redis_client.xrevrange(
-            'isyncwave:eeg:stream', '+', '-', count=count
-        )
+        # 시간 범위에 따른 데이터 조회 방법 결정
+        if start_time is not None or end_time is not None:
+            # 시간 범위 기반 조회
+            stream_data = self._load_by_time_range(start_time, end_time)
+        else:
+            # count 기반 조회 (기존 방식)
+            if count is None:
+                count = 100000
+            stream_data = self.redis_client.xrevrange(
+                'isyncwave:eeg:stream', '+', '-', count=count
+            )
 
         if not stream_data:
             print("❌ 스트림 데이터가 없습니다!")
             return False
 
         print(f"\n스트림 데이터:")
-        print(f"  사용 가능한 샘플: {len(stream_data)}")
+        print(f"  로드된 샘플: {len(stream_data)}")
 
         # 채널 파싱
         channel_names = meta.get('channels', '').split(',')
@@ -102,8 +255,17 @@ class RedisEEGPipeline:
         signals = {ch: [] for ch in channel_names}
         timestamps = []
 
-        # 시간순으로 정렬 (reverse)
-        for msg_id, data in reversed(stream_data):
+        # 시간순으로 정렬
+        # xrevrange 사용 시: 역순 정렬되어 있으므로 reversed 필요
+        # xrange 사용 시 (시간 범위 조회): 이미 정순 정렬
+        if start_time is not None or end_time is not None:
+            # 시간 범위 조회 - 이미 정순
+            data_iter = stream_data
+        else:
+            # count 기반 조회 (xrevrange) - 역순이므로 뒤집기
+            data_iter = reversed(stream_data)
+
+        for msg_id, data in data_iter:
             timestamps.append(float(data.get('lsl_timestamp', 0)))
             for ch in channel_names:
                 if ch in data:
@@ -514,8 +676,15 @@ def main():
     if not pipeline.connect():
         return
 
-    # 데이터 로드
-    if not pipeline.load_data(count=100000):
+    # 사용 가능한 시간 범위 확인
+    time_range = pipeline.get_available_time_range()
+    if time_range is None:
+        return
+
+    # 데이터 로드 (기본: 전체 데이터)
+    # 특정 시간 범위를 원하면 start_time, end_time 파라미터 사용
+    # 예: pipeline.load_data(start_time=100.0, end_time=200.0)
+    if not pipeline.load_data():
         return
 
     # 전처리
