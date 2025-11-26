@@ -6,6 +6,7 @@ Real-ESRGAN fine-tuned model for 4x super-resolution of microscope microdisk ima
 
 - **[Project Summary](PROJECT_SUMMARY.md)** - Full documentation
 - **[Quick Start Guide](QUICK_START.md)** - Get started quickly
+- **[Training Methodology](TRAINING_METHODOLOGY.md)** - Fine-tuning vs 재학습 설명
 
 ## Results
 
