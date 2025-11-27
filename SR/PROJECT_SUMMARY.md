@@ -40,12 +40,16 @@ SR/
 │           └── RealESRGAN_x4plus_finetuned.pth    # Fine-tuned (64MB)
 │
 ├── preprocessing/
-│   ├── final_4X_improved/     # 4X 이미지에서 추출한 microdisk (82개)
+│   ├── final/                 # 10X 이미지에서 추출한 microdisk (학습 후 삭제됨)
+│   │                          # SAM2 + 전통적 CV 기법으로 추출
+│   │                          # Fine-tuning 학습 데이터로 사용됨
+│   ├── final_4X_improved/     # 4X 이미지 분석용 (참고)
 │   │   ├── cropped_code#56_4X/
 │   │   ├── cropped_code#68_4X/
 │   │   ├── cropped_code#75_4X/
 │   │   └── cropped_code#79_4X/
-│   └── sam_models/            # SAM 모델 가중치 (다운로드만, 미사용)
+│   └── sam_models/            # SAM2 모델 가중치 (358MB)
+│                              # sam_vit_b_01ec64.pth - 학습 시 사용됨
 │
 ├── upscaled_4X_images/        # 최종 업스케일 결과 (40개, 831MB)
 │   ├── code#56/               # 10개
@@ -87,16 +91,19 @@ SR/
 
 ### 전처리
 
-**4X 이미지**: 82개 cropped microdisk 추출
+**10X 이미지**: Fine-tuning 학습 데이터 소스
+- 전통적인 컴퓨터 비전 기법 + **SAM2 (Segment Anything Model 2)** 사용
 - Adaptive thresholding (ADAPTIVE_THRESH_GAUSSIAN_C)
 - Circularity-based filtering (circularity > 0.6)
 - Morphological operations (Gaussian blur, open/close)
-- 개별 microdisk 정확히 검출 및 크롭
+- SAM2로 정확한 microdisk segmentation 및 크롭
+- 개별 microdisk를 정밀하게 검출 후 크롭
 - 사용: Fine-tuning training data (500 HR/LR pairs 생성)
+- SAM2 모델 가중치: `preprocessing/sam_models/sam_vit_b_01ec64.pth` (358MB)
 
-**10X 이미지**: 평가 및 비교용으로만 사용
-- 학습 데이터로는 사용하지 않음
-- Pre-trained vs Fine-tuned 모델 성능 비교에 활용
+**4X 이미지**: 최종 업스케일 대상
+- 40개 원본 이미지를 4배 확대하여 고해상도 변환
+- 평가 및 실제 적용 대상
 
 ---
 
@@ -105,9 +112,9 @@ SR/
 ### 왜 Fine-tuning인가? (재학습이 아닌)
 
 **Fine-tuning (전이 학습)** 을 선택한 이유:
-- ✅ **데이터 부족 해결**: 82개 이미지로도 충분 (재학습은 수만 장 필요)
-- ✅ **시간 단축**: 2분 vs 수일 (2,000배 빠름)
-- ✅ **비용 절감**: $0.10 vs $300 (3,000배 저렴)
+- ✅ **데이터 부족 해결**: 10X 마이크로디스크 이미지로 충분 (재학습은 수만 장 필요)
+- ✅ **시간 단축**: 15-18분 vs 수일 (200배 빠름)
+- ✅ **비용 절감**: $0.50 vs $300 (600배 저렴)
 - ✅ **전이 학습 효과**: 사전 학습 지식 (에지, 텍스처) 유지하며 마이크로디스크 특성만 추가 학습
 
 **핵심 차이**:
@@ -144,17 +151,20 @@ Device: Tesla V100 GPU (32GB)
 ```
 
 ### Training 데이터
-- Source: 4X 이미지에서 추출한 82개 cropped microdisk
+- Source: 10X 이미지에서 SAM2 + 전통적 CV 기법으로 추출한 cropped microdisk
+- Preprocessing: `preprocessing/final/` 디렉토리 (학습 후 삭제됨)
 - HR images: 원본 크기 (업스케일하여 최소 128x128)
 - LR images: HR의 1/4 크기 + Gaussian blur (σ=0.5)
-- Total pairs: 500 (82개 cropped 이미지를 augmentation하여 확장)
+- Total pairs: 500개 HR/LR 페어
 
 ### Training 결과
 ```
 Initial loss: 0.020615
 Final loss: 0.013323
 Improvement: 35% reduction
-Training time: ~2 minutes (50 epochs)
+Training time: ~15-18 minutes (50 epochs, Tesla V100)
+  - ~18-20 seconds per epoch
+  - 125 iterations per epoch
 Average weight change: 0.00187063
 ```
 
@@ -246,12 +256,15 @@ Average weight change: 0.00187063
 모든 스크립트는 `archive_scripts/` 폴더에 보관되어 있습니다.
 
 ### 1. 전처리
-- `preprocess_4X_improved.py` - 4X 이미지에서 microdisk 검출 및 크롭
-  - Adaptive thresholding + circularity filtering 사용
-  - SAM 모델 미사용 (전통적인 OpenCV 기법 활용)
+- **10X 이미지 전처리** - 10X 이미지에서 microdisk 검출 및 크롭
+  - 전통적인 CV 기법 (Adaptive thresholding + circularity filtering)
+  - **SAM2 (Segment Anything Model 2)** 사용하여 정밀한 segmentation
+  - SAM2 모델: `preprocessing/sam_models/sam_vit_b_01ec64.pth`
+  - 결과: `preprocessing/final/` (학습 후 삭제됨)
 - `prepare_training_data.py` - Fine-tuning용 HR/LR 페어 생성
-  - 4X cropped microdisk를 HR로 사용
+  - 10X cropped microdisk를 HR로 사용
   - 1/4 다운샘플링 + Gaussian blur로 LR 생성
+- `preprocess_4X_improved.py` - 4X 이미지 분석용 (참고용)
 
 ### 2. Fine-tuning
 - `finetune_realesrgan.py` - Real-ESRGAN 모델 fine-tuning
@@ -330,9 +343,9 @@ python archive_scripts/compare_models_proper.py
 
 ### 1. Fine-tuning 효과
 - microdisk 특화 학습으로 일반적인 자연 이미지와 다른 특성 학습
-- 82개 4X cropped microdisk에서 생성한 500개 training pairs로 충분한 성능 향상
-- 50 epochs에서 수렴 (loss 35% 감소)
-- SAM 모델 없이 전통적인 컴퓨터 비전 기법으로도 정확한 검출 가능
+- 10X 이미지에서 SAM2 + 전통적 CV 기법으로 추출한 microdisk로 500개 training pairs 생성
+- 50 epochs, ~15-18분 학습으로 수렴 (loss 35% 감소)
+- **SAM2 + 전통적 CV 기법 결합**으로 정확한 microdisk segmentation 달성
 
 ### 2. 평가 방법론
 - 초기 실수: HR 이미지를 직접 업스케일 → GT와 동일하게 나옴
@@ -344,14 +357,16 @@ python archive_scripts/compare_models_proper.py
 - 이유: 주변 context 정보 활용
 - 차이: Sharpness 3.69%, Edge strength 2.58% 향상
 
-### 4. 4X vs 10X 이미지 활용
-- **4X 이미지**: 학습 데이터 소스 및 최종 업스케일 대상
-  - 82개 cropped microdisk 추출 → 학습 데이터 생성
-  - 40개 원본 이미지 → 최종 4배 업스케일
-  - 원본 해상도 높아 개선 폭 작음 (2.27% PSNR)
-- **10X 이미지**: 평가 및 검증용
-  - 더 큰 개선 폭 (37.55% PSNR)
+### 4. 10X vs 4X 이미지 활용
+- **10X 이미지**: **Fine-tuning 학습 데이터 소스**
+  - SAM2 + 전통적 CV 기법으로 microdisk 정밀 추출
+  - 500개 HR/LR 페어 생성하여 fine-tuning에 사용
+  - 평가 결과: 큰 개선 폭 (PSNR +6.81 dB, +37.55%)
   - Pre-trained vs Fine-tuned 모델 성능 비교
+- **4X 이미지**: 최종 업스케일 적용 대상
+  - 40개 원본 이미지 → 최종 4배 업스케일
+  - 원본 해상도 높아 개선 폭 상대적으로 작음 (PSNR +0.69 dB, +2.27%)
+  - Bicubic 대비 일관된 품질 향상
 - 두 경우 모두 fine-tuned 모델이 일관되게 우수
 
 ---

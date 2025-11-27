@@ -59,9 +59,10 @@ python archive_scripts/upscale_all_4X_images.py
 - **권장**: GPU 사용 (CPU는 느림)
 
 ### 성능
-- 10X 이미지: PSNR 24.93 dB, SSIM 0.7869
-- 4X 이미지: PSNR 30.95 dB, SSIM 0.9323
-- Bicubic 대비 2.27% PSNR 향상
+- **학습 데이터**: 10X 이미지 (SAM2 + 전통적 CV 기법으로 전처리)
+- **학습 시간**: ~15-18분 (50 epochs, Tesla V100)
+- **10X 이미지 평가**: PSNR 24.93 dB, SSIM 0.7869 (Pre-trained 대비 +37.55% PSNR)
+- **4X 이미지 평가**: PSNR 30.95 dB, SSIM 0.9323 (Bicubic 대비 +2.27% PSNR)
 
 ---
 

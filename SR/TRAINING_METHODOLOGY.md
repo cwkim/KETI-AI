@@ -54,7 +54,7 @@ optimizer = optim.Adam(model.parameters(), lr=1e-4)  # 0.0001
 
 # 4. 적은 데이터와 짧은 학습
 num_epochs = 50
-dataset_size = 82  # 82개 cropped 이미지로 충분!
+dataset_size = 500  # 10X 이미지에서 SAM2로 추출한 microdisk → 500 HR/LR pairs
 ```
 
 ---
@@ -70,11 +70,11 @@ dataset_size = 82  # 82개 cropped 이미지로 충분!
 
 ### 2. 우리 데이터 준비
 ```
-원본: 40개 4X 이미지
-  ↓ preprocess_4X_improved.py
-82개 cropped microdisk
+원본: 40개 10X 이미지
+  ↓ SAM2 + 전통적 CV 기법으로 microdisk 검출 및 크롭
+Cropped microdisk images (preprocessing/final/)
   ↓ prepare_training_data.py
-500 HR/LR pairs (augmentation)
+500 HR/LR pairs
 ```
 
 ### 3. Fine-tuning 설정
@@ -97,7 +97,7 @@ Loss: L1 Loss (pixel-wise)
 ### 4. 학습 결과
 
 ```
-Training Time: ~2 minutes (Tesla V100)
+Training Time: ~15-18 minutes (50 epochs, Tesla V100)
 Initial Loss: 0.020615  ← 이미 낮음!
 Final Loss: 0.013323    ← 35% 개선
 Improvement: 35% loss reduction
@@ -117,11 +117,11 @@ Improvement: 99% loss reduction (하지만 시간과 비용이 막대)
 
 ### 1. 데이터 부족 문제 해결 ✅
 
-**문제**: 마이크로디스크 이미지 82개 (매우 적음)
+**문제**: 10X 마이크로디스크 이미지 (제한적)
 
 | 방법 | 필요 데이터 | 우리 데이터 | 가능 여부 |
 |------|------------|-----------|---------|
-| 재학습 | 50,000+ | 82 | ❌ 불가능 |
+| 재학습 | 50,000+ | 500 | ❌ 불가능 |
 | Fine-tuning | 500-1000 | 500 (augmented) | ✅ 가능 |
 
 ### 2. 학습 시간 단축 ✅
@@ -135,8 +135,8 @@ Improvement: 99% loss reduction (하지만 시간과 비용이 막대)
 
 Fine-tuning 실제:
 - GPU: Tesla V100
-- 시간: 2분
-- 비용: ~$0.10
+- 시간: 15-18분
+- 비용: ~$0.50-0.90
 - 위험: 거의 없음 (이미 좋은 모델 사용)
 ```
 
@@ -313,7 +313,7 @@ optimizer = optim.Adam([
 - Random rotation (선택)
 - Color jittering (선택)
 
-# 본 프로젝트: 82개 → 500+ 효과
+# 본 프로젝트: 10X 이미지 → SAM2 전처리 → 500 HR/LR pairs
 ```
 
 ### 3. Early Stopping
@@ -343,7 +343,7 @@ scheduler = StepLR(optimizer, step_size=16, gamma=0.5)
 | 작업 | 시간 | 비용 | 비고 |
 |------|------|------|------|
 | **재학습** | 72-120시간 | $216-360 | + 전기료, 모니터링 |
-| **Fine-tuning** | 2분 | ~$0.10 | 본 프로젝트 |
+| **Fine-tuning** | 15-18분 | ~$0.50-0.90 | 본 프로젝트 |
 | **절감액** | - | **$215-360** | 2,000배 이상 효율 |
 
 ### 개발 시간
@@ -381,9 +381,9 @@ Fine-tuning이 항상 정답은 아닙니다. 다음 경우에는 재학습을 �
 ### Fine-tuning이 적합한 경우 (본 프로젝트):
 
 ✅ 유사한 도메인 (자연 이미지 → 현미경 이미지)
-✅ 제한된 데이터 (82개)
-✅ 빠른 결과 필요 (2분)
-✅ 비용 제약 ($0.10 vs $300)
+✅ 제한된 데이터 (500 pairs from 10X images)
+✅ 빠른 결과 필요 (15-18분)
+✅ 비용 제약 ($0.50 vs $300)
 ✅ 좋은 사전 학습 모델 존재 (RealESRGAN)
 
 ---
@@ -393,9 +393,9 @@ Fine-tuning이 항상 정답은 아닙니다. 다음 경우에는 재학습을 �
 본 프로젝트는 **Fine-tuning의 교과서적 성공 사례**입니다:
 
 ### 투입 자원
-- 데이터: 82개 cropped 이미지
-- 시간: 2분
-- 비용: ~$0.10
+- 데이터: 10X 이미지에서 SAM2로 추출한 microdisk → 500 HR/LR pairs
+- 시간: 15-18분
+- 비용: ~$0.50-0.90
 - GPU: Tesla V100
 
 ### 달성 결과
@@ -405,9 +405,9 @@ Fine-tuning이 항상 정답은 아닙니다. 다음 경우에는 재학습을 �
 - 학습 안정성: 100% 성공
 
 ### 핵심 교훈
-1. **적은 데이터로도 가능**: 82개 → 500 pairs
-2. **빠른 학습**: 2분 vs 수일
-3. **높은 효율**: $0.10 vs $300
+1. **적은 데이터로도 가능**: 10X 이미지 → SAM2 전처리 → 500 pairs
+2. **빠른 학습**: 15-18분 vs 수일
+3. **높은 효율**: $0.50 vs $300
 4. **안정적**: 거의 실패 없음
 5. **전이 학습의 힘**: 기존 지식 활용
 
